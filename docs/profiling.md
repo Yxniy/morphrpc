@@ -8,17 +8,17 @@ From the repository root, with a pinned Rust toolchain on `PATH`:
 out=$(mktemp -d)
 CARGO_PROFILE_RELEASE_DEBUG=1 cargo build --release --locked -p morphrpc-bench
 binary="$PWD/target/release/morphrpc-bench"
-sed 's/^requests = 20000$/requests = 200000/' benchmarks/configs/client-encode.toml \
-  > "$out/profile.toml"
 ```
 
-This closed-loop workload runs tiny responses over one and eight persistent connections for each protocol. The launched driver is the client process. It spawns one server subprocess per protocol using the same binary, so distinguish the driver from children by PID and arguments. To inspect the server, attach to a server PID during a longer run. Profilers may retain local paths or traffic, so inspect exports before sharing them.
+The launched driver is the client process. It spawns one server subprocess per protocol using the same binary, so distinguish the driver from children by PID and arguments. To inspect the server, attach to a server PID during a longer run. Profilers may retain local paths or traffic, so inspect exports before sharing them.
 
 ## macOS
 
-Install full Xcode and select its developer directory. Run `xcrun xctrace list templates` to check for Time Profiler, Allocations, and System Trace. Use local Xcode developer permissions for the target. Allocation tracing may require the target's debug entitlement even when CPU sampling works.
+Install full Xcode and select its developer directory. Run `xcrun xctrace list templates` to check for Time Profiler, Allocations, and System Trace. Use local Xcode developer permissions for the target. Allocation tracing may require the target's debug entitlement even when CPU sampling works. The CPU and socket commands use tiny responses and one or eight persistent connections.
 
 ```sh
+sed 's/^requests = 20000$/requests = 200000/' benchmarks/configs/client-encode.toml \
+  > "$out/profile.toml"
 xcrun xctrace record --template 'Time Profiler' --time-limit 90s \
   --output "$out/cpu.trace" --launch -- "$binary" run "$out/profile.toml" "$out/cpu-run"
 xcrun xctrace record --template 'Allocations' --time-limit 90s \
@@ -53,22 +53,33 @@ Open the trace in Instruments and select the launched PID. Use the Time Profiler
 
 ## Linux
 
-Install the `perf` tools matching the kernel, `heaptrack`, and `strace` through your distribution. Use a host where the profiling user has access to the required perf events. The following shell wrapper records the driver PID before executing the benchmark, preserving the PID for filtering. Perf inherits child processes and threads by default. Its `task-clock` totals therefore cover the driver and its children.
+Install the `perf` tools matching the kernel, `heaptrack`, and `strace` through your distribution. Use a host where the profiling user has access to the required perf events. The following shell wrapper records the driver PID before executing the benchmark, preserving the PID for filtering. Perf inherits child processes and threads by default. Its `task-clock` totals therefore cover the driver and its children. The Linux diagnostic profile uses tiny responses and 32 connections to keep the workload practical when gRPC encounters delayed ACKs with the audited TCP settings. For a short syscall trace at lower concurrency, use the smoke profile.
 
 ```sh
+cat > "$out/linux-profile.toml" <<'TOML'
+requests = 4000
+warmup_requests = 128
+repetitions = 1
+concurrency = [32]
+
+[[profiles]]
+name = "tiny"
+payload_size = 0
+TOML
+
 perf stat -e task-clock,context-switches,cpu-migrations,page-faults \
-  -o "$out/perf-stat.txt" -- "$binary" run "$out/profile.toml" "$out/stat-run"
+  -o "$out/perf-stat.txt" -- "$binary" run "$out/linux-profile.toml" "$out/stat-run"
 perf record -e cpu-clock -g --call-graph dwarf -o "$out/perf.data" -- \
   sh -c 'echo "$$" > "$1"; shift; exec "$@"' sh "$out/driver.pid" \
-  "$binary" run "$out/profile.toml" "$out/perf-run"
+  "$binary" run "$out/linux-profile.toml" "$out/perf-run"
 perf report --stdio --pid "$(cat "$out/driver.pid")" -i "$out/perf.data"
 
-heaptrack -o "$out/heap" "$binary" run benchmarks/configs/client-encode.toml "$out/heap-run"
+heaptrack -o "$out/heap" "$binary" run "$out/linux-profile.toml" "$out/heap-run"
 # Pass the capture filename printed by heaptrack.
 heaptrack_print CAPTURE_FILE > "$out/heap.txt"
 
 strace -ff -tt -T -y -e trace=%network,read,write -o "$out/socket" \
-  "$binary" run benchmarks/configs/client-encode.toml "$out/io-run"
+  "$binary" run benchmarks/configs/smoke.toml "$out/io-run"
 ```
 
 Review heap allocation counts and temporary allocations by stack. Where the capture includes child processes, filter the driver PID. In the syscall logs, separate sockets from file I/O using the descriptor annotations and follow the relevant PIDs and threads. Syscall duration includes kernel wait time. [Linux perf permissions](https://docs.kernel.org/admin-guide/perf-security.html) · [perf record options](https://github.com/torvalds/linux/blob/master/tools/perf/Documentation/perf-record.txt) · [Heaptrack](https://github.com/KDE/heaptrack)
