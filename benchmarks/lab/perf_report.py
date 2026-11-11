@@ -150,6 +150,7 @@ def load_runs(out, manifest):
 
     metadata = None
     observations = []
+    lockfiles = {}
     samples = defaultdict(lambda: defaultdict(list))
     for pair, order in enumerate(orders, start=1):
         for position, side in enumerate(order, start=1):
@@ -165,6 +166,10 @@ def load_runs(out, manifest):
             if metadata is not None and metadata != current:
                 raise ValueError(f"workload configuration or environment differs in {path}")
             metadata = current
+            lock_hash = hashlib.sha256(report["cargo_lock"].encode("utf-8")).hexdigest()
+            if side in lockfiles and lockfiles[side] != lock_hash:
+                raise ValueError(f"lockfile differs between runs of {side}")
+            lockfiles[side] = lock_hash
             for key, rows in grouped(report).items():
                 for field in METRICS:
                     values = [row[field] for row in rows]
@@ -175,6 +180,7 @@ def load_runs(out, manifest):
                     for row in rows
                 )
 
+    metadata["cargo_lock_sha256"] = lockfiles
     comparison = []
     for (protocol, profile, payload, concurrency), metrics in sorted(samples.items()):
         for field in METRICS:
@@ -211,6 +217,13 @@ def markdown(manifest, metadata, rows):
         f"- Workload SHA-256 `{manifest['config_sha256']}`",
         "",
     ]
+    lockfiles = metadata["cargo_lock_sha256"]
+    if "baseline" in lockfiles and lockfiles["baseline"] != lockfiles["candidate"]:
+        lines += [
+            "**Dependency change.** Cargo.lock differs between revisions. Review dependency changes "
+            "when interpreting performance differences.",
+            "",
+        ]
     if manifest["comparison_unavailable"]:
         lines += [manifest["comparison_unavailable"], "The candidate completed a standalone benchmark.", ""]
     else:
@@ -218,7 +231,7 @@ def markdown(manifest, metadata, rows):
             f"{len(manifest['orders'])} paired blocks, alternating baseline-first and candidate-first.",
             "Timing and resource cells show median ± sample standard deviation across blocks.",
             "The change is the median paired percentage difference (candidate relative to baseline).",
-            "Intervals have at least 95% nominal coverage under independent blocks and are per metric.",
+            "Intervals have at least 95% nominal coverage for independent, identically distributed continuous blocks and are per metric.",
             "A dash marks an unavailable value. Intervals require at least six valid pairs.",
             "",
         ]

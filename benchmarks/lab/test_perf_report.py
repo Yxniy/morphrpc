@@ -18,6 +18,7 @@ def benchmark_report(revision, throughput):
         "revision": revision,
         "working_tree_dirty": False,
         "build_rustc": "rustc test",
+        "cargo_lock": "same lockfile",
         "os": "test OS",
         "cpu": "test CPU",
         "config": {
@@ -123,6 +124,24 @@ class ReportTest(unittest.TestCase):
         report["config"]["requests"] += 1
         write_json(path, report)
         with self.assertRaisesRegex(ValueError, "configuration .* differs"):
+            generate(self.out)
+
+    def test_reports_dependency_changes_and_rejects_inconsistent_lockfiles(self):
+        for pair in (1, 2):
+            path = self.path(pair, "candidate")
+            report = read_json(path)
+            report["cargo_lock"] = "changed lockfile"
+            write_json(path, report)
+        generate(self.out)
+        self.assertIn("Cargo.lock differs", (self.out / "summary.md").read_text(encoding="utf-8"))
+        metadata = read_json(self.out / "comparison.json")["metadata"]
+        self.assertNotEqual(metadata["cargo_lock_sha256"]["baseline"], metadata["cargo_lock_sha256"]["candidate"])
+
+        path = self.path(2, "candidate")
+        report = read_json(path)
+        report["cargo_lock"] = "another lockfile"
+        write_json(path, report)
+        with self.assertRaisesRegex(ValueError, "lockfile differs between runs"):
             generate(self.out)
 
     def test_refuses_changed_configuration_file(self):
