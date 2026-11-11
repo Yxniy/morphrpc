@@ -133,3 +133,21 @@ fn enforces_frame_size_on_encoding_and_prefix_read() {
         );
     }
 }
+
+#[test]
+fn round_trips_all_kinds_with_empty_payload() {
+    for kind in [
+        MessageKind::Request,
+        MessageKind::Response,
+        MessageKind::Error,
+    ] {
+        let value = Frame {
+            kind,
+            operation: u16::MAX,
+            request_id: u64::MAX,
+            payload: vec![],
+        };
+        let encoded = encode(&value).unwrap();
+        assert_eq!(decode(&encoded).unwrap(), (value, encoded.len()));
+    }
+}
