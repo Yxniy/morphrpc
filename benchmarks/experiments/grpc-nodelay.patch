@@ -1,0 +1,34 @@
+diff --git a/benchmarks/src/lib.rs b/benchmarks/src/lib.rs
+index 37276c8..8c61186 100644
+--- a/benchmarks/src/lib.rs
++++ b/benchmarks/src/lib.rs
+@@ -129,7 +129,7 @@ pub async fn serve(
+         }
+         "grpc" => {
+             tonic::transport::Server::builder()
+-                .tcp_nodelay(false)
++                .tcp_nodelay(std::env::var("GRPC_SERVER_NODELAY").as_deref() == Ok("1"))
+                 .add_service(UsersServer::new(GrpcUsers))
+                 .serve(address)
+                 .await?;
+diff --git a/benchmarks/src/main.rs b/benchmarks/src/main.rs
+index 94adba7..108d4c8 100644
+--- a/benchmarks/src/main.rs
++++ b/benchmarks/src/main.rs
+@@ -126,7 +126,7 @@ impl Connection {
+             )),
+             "grpc" => {
+                 let channel = tonic::transport::Endpoint::from_shared(format!("http://{address}"))?
+-                    .tcp_nodelay(false)
++                    .tcp_nodelay(std::env::var("GRPC_CLIENT_NODELAY").as_deref() == Ok("1"))
+                     .connect_timeout(DEADLINE)
+                     .timeout(DEADLINE)
+                     .connect()
+@@ -300,6 +300,7 @@ async fn measure(
+                 let start = Instant::now();
+                 let result = connection.call(&query).await?;
+                 let end = Instant::now();
++                if end.duration_since(start) > Duration::from_millis(5) { eprintln!("slow worker={index} req={request_index} elapsed_us={:.0}", end.duration_since(start).as_secs_f64()*1e6); }
+                 latencies.push(end.duration_since(start).as_secs_f64() * 1_000_000.0);
+                 if let Some(at) = scheduled {
+                     scheduled_latencies.push(end.duration_since(at).as_secs_f64() * 1_000_000.0);

@@ -1,0 +1,12 @@
+# Loopback baseline, November 10, 2026
+
+These results were recorded on an Apple M5 Pro running Darwin 27.2.0 with Rust 1.99.1, using release builds at commit `4bc5987e8dcb744dcdfd74f565b9831f897a544d`. The working tree was clean. Each closed-loop row represents the median of three repetitions of 2,000 measured requests after 300 warm-up requests. Servers and load generator ran as separate processes on the same host over unsecured loopback. The [JSON and CSV reports](closed/) contain the individual runs and environment metadata.
+
+
+**Historical dataset.** The benchmark version used here measured wall time through worker task teardown and sample aggregation. That interval can include work after the last verified response. The current harness ends the interval at the last worker's verified completion, so the throughput values in these files are not directly comparable to current runs. Retain the raw files as provenance; rerun the suite before making throughput claims. Each p99 used only 2,000 samples and each p99.9 depended on two samples. The three repetitions shared the same server processes, so these data are insufficient to characterize stable extreme tails.
+
+The gRPC 64 KiB and eight-connection runs included individual calls around 235 ms. A [controlled diagnostic](../../experiments/README.md) found that enabling `TCP_NODELAY` on the gRPC server eliminated those observed stalls in three repetitions on the same host. The exact packet-level cause remains unverified. All three baseline protocols used disabled `TCP_NODELAY` on this host, while tonic normally enables it. This socket choice is material to interpreting the historical comparison.
+
+The tiny MorphRPC request and response each contained 12 payload bytes and 16 frame bytes. The corresponding Protobuf messages contained 2 and 7 bytes, plus a 5-byte gRPC envelope per message. HTTP/2 metadata, frame headers, TCP/IP headers, acknowledgments, retransmissions, and link-layer traffic are excluded. Actual transport bytes were not collected.
+
+The original [scheduled-rate reports](scheduled/) targeted 5,000 aggregate requests/s. Their scheduled latencies include driver scheduling delay and client-assigned backlog. These same-host, unsecured loopback observations cannot establish production performance or internal bottlenecks. Profile allocations and CPU, inspect packet and HTTP/2 traces, and use separate hosts and larger independent trials before optimizing based on them. See the [suite README](../../README.md) for methodology and commands.

@@ -11,4 +11,5 @@ readme = "README.md"
 tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
 
 [workspace]
+members = ["benchmarks"]
 resolver = "3"
