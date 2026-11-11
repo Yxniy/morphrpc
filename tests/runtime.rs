@@ -196,3 +196,32 @@ async fn client_rejects_mismatched_response_and_disconnect() {
     ));
     server.await.unwrap();
 }
+
+#[tokio::test]
+async fn local_encoding_errors_preserve_connection_and_request_id() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = tokio::spawn(async move {
+        let (stream, _) = listener.accept().await.unwrap();
+        runtime::serve_connection(stream, DEADLINE, |_, payload| {
+            (MessageKind::Response, payload.to_vec())
+        })
+        .await
+        .unwrap();
+    });
+
+    let mut client = Client::connect(address, DEADLINE).await.unwrap();
+    assert!(matches!(
+        client.call(0, vec![]).await,
+        Err(Error::Codec(CodecError::InvalidOperation))
+    ));
+    assert!(matches!(
+        client.call(1, vec![0; protocol::MAX_FRAME_LEN - 11]).await,
+        Err(Error::Codec(CodecError::FrameTooLarge { length }))
+            if length == protocol::MAX_FRAME_LEN + 1
+    ));
+    let response = client.call(1, vec![42]).await.unwrap();
+    assert_eq!((response.request_id, response.payload), (0, vec![42]));
+    drop(client);
+    server.await.unwrap();
+}

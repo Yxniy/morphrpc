@@ -90,12 +90,12 @@ impl Client {
             request_id: self.next_id,
             payload,
         };
-        // Validate before taking the stream, so local input errors do not disconnect it.
-        protocol::encode(&request)?;
+        // Encode before taking the stream, so local input errors do not disconnect it.
+        let encoded = protocol::encode(&request)?;
         let mut stream = self.stream.take().ok_or(Error::Disconnected)?;
         self.next_id = self.next_id.wrapping_add(1);
         let result = timeout(self.deadline, async {
-            write_frame(&mut stream, &request).await?;
+            stream.write_all(&encoded).await?;
             let response = read_frame(&mut stream).await?.ok_or(Error::Disconnected)?;
             if !matches!(response.kind, MessageKind::Response | MessageKind::Error)
                 || response.operation != request.operation
