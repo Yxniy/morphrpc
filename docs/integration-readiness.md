@@ -16,7 +16,7 @@ The integration branch adds explicit compiler and generated-project formatting, 
 
 The checked-in integration fixture derives field candidates from the static FastAPI example, keeps its authentication, side-effect, and operation-ID review blockers visible, and compares them with a manually authored test contract. The generated-project test compiles the resulting contract's bindings and sends repeated calls through the v1 TCP runtime. The fixture's operation ID is a test assignment and is not approval to migrate or shadow the example.
 
-On the combined branch based on `main` at `f875968`, local formatting, Clippy, root workspace tests, compiler and generated-project build/tests, eleven Python analyzer and handoff tests, eight Performance Lab report tests, actionlint, and ShellCheck passed. A local RustSec audit found no known vulnerabilities in the four lockfiles. GitHub Actions must pass on the final integration PR head as well. The integration branch incorporates PR #4 head `7e9eb80`, whose PR checks passed at review time. Refresh the branch and repeat combined checks if any component head changes.
+On the combined branch based on `main` at `f875968`, local formatting, Clippy, root workspace tests, compiler and generated-project build/tests, eleven Python analyzer and handoff tests, eight Performance Lab report tests, actionlint, and ShellCheck passed. A local RustSec audit found no known vulnerabilities in the four lockfiles. GitHub Actions must pass on the final integration PR head as well. The integration branch incorporates PR #4 head `663e606`, whose PR checks passed at review time. Refresh the branch and repeat combined checks if any component head changes.
 
 ## Compatibility and remaining risks
 
