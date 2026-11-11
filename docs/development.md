@@ -17,9 +17,17 @@ Create a feature branch. Run the checks from the repository root with the pinned
 ```sh
 cargo fmt --all -- --check
 cargo fmt --manifest-path fuzz/Cargo.toml -- --check
+cargo fmt --manifest-path compiler/Cargo.toml -- --check
+cargo fmt --manifest-path compiler/tests/generated_project/Cargo.toml -- --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo build --workspace --all-targets --all-features --locked
 cargo test --workspace --all-features --locked
+cargo clippy --manifest-path compiler/Cargo.toml --all-targets --locked -- -D warnings
+cargo test --manifest-path compiler/Cargo.toml --locked
+cargo build --manifest-path compiler/tests/generated_project/Cargo.toml --all-targets --locked
+cargo clippy --manifest-path compiler/tests/generated_project/Cargo.toml --all-targets --locked -- -D warnings
+cargo test --manifest-path compiler/tests/generated_project/Cargo.toml --locked
+python3 -m unittest discover -s skills/fastapi-assessment/tests -v
 cargo build --release --workspace --all-targets --all-features --locked
 ```
 
@@ -29,7 +37,7 @@ To reproduce a protocol or networking failure, run the affected integration test
 cargo test --locked -p morphrpc --test codec --test protocol_version --test runtime
 ```
 
-For workflow changes, run `actionlint` (CI uses 1.7.12) with `shellcheck` installed, then run `shellcheck .devcontainer/setup.sh`. For dependency changes, audit both lockfiles from a directory outside the checkout so project Cargo configuration is outside the audit process.
+For workflow changes, run `actionlint` (CI uses 1.7.12) with `shellcheck` installed, then run `shellcheck .devcontainer/setup.sh`. For dependency changes, audit all four lockfiles from a directory outside the checkout so project Cargo configuration is outside the audit process.
 
 ```sh
 repo=$(pwd)
@@ -37,6 +45,8 @@ repo=$(pwd)
     cd /tmp
     cargo-audit audit --file "$repo/Cargo.lock"
     cargo-audit audit --file "$repo/fuzz/Cargo.lock"
+    cargo-audit audit --file "$repo/compiler/Cargo.lock"
+    cargo-audit audit --file "$repo/compiler/tests/generated_project/Cargo.lock"
 )
 ```
 
@@ -46,9 +56,10 @@ The audit uses the current [RustSec advisory database](https://github.com/RustSe
 
 | Workflow and check | Trigger | Merge policy and output |
 | --- | --- | --- |
-| CI / `Rust` | PR, merge queue, push to `main` | Require. Formatting, Clippy with warnings denied, debug and release builds, unit and integration tests, including v1 compatibility and networking errors. |
-| CI / `Dependency audit` | PR, merge queue, push to `main`, weekly | Require. RustSec audit of workspace and fuzz lockfiles. |
+| CI / `Rust` | PR, merge queue, push to `main` | Require. Formatting, Clippy with warnings denied, debug and release builds, unit and integration tests, including v1 compatibility, the standalone compiler, and generated bindings. |
+| CI / `Dependency audit` | PR, merge queue, push to `main`, weekly | Require. RustSec audit of workspace, fuzz, compiler and generated-project lockfiles. |
 | CI / `Workflow lint` | PR, merge queue, push to `main` | Require. Validates workflow syntax, expressions, and shell scripts. |
+| CI / `Migration assessment` | PR, merge queue, push to `main` | Require. Runs static analyzer unit tests and the reviewed contract handoff test with pinned Python. |
 | Coverage / `Test coverage` | PR, push to `main` | Advisory. Workspace coverage totals and a `workspace-lcov` artifact. |
 | Benchmarks / `Benchmark reports` | PR, weekly, manual on `main` | Advisory. PR smoke run and same-run baseline comparison when available. Weekly and manual runs use shorter hosted closed-loop and fixed-rate profiles. |
 | CodeQL / `CodeQL PR report` | PR | Advisory. Rust findings in a `codeql-pr-sarif` artifact. |
@@ -99,7 +110,7 @@ See the [Performance Lab](performance-lab.md) for paired baseline/candidate runs
 A repository administrator can create an active branch ruleset in **Settings → Rules → Rulesets**, targeting only `main`.
 
 1. Require a pull request and one approval from a reviewer with write access. Dismiss stale approvals on new commits and, where available, require approval of the most recent reviewable push from someone other than the last pusher. A solo maintainer needs another eligible reviewer to enforce independent approval.
-2. Require `Rust`, `Dependency audit`, and `Workflow lint` from GitHub Actions. Select the exact names GitHub records after each job has run successfully. Enable **Require branches to be up to date before merging**.
+2. Require `Rust`, `Dependency audit`, `Workflow lint`, and `Migration assessment` from GitHub Actions. Select the exact names GitHub records after each job has run successfully. Enable **Require branches to be up to date before merging**.
 3. Block force pushes and restrict deletions.
 4. Leave the bypass list empty. If a recovery policy requires an exception, limit it to a designated maintainer or team and use PR-only bypass where available.
 

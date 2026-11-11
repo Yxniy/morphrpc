@@ -39,12 +39,14 @@ jobs:
           path: |
             ~/.cargo/registry/cache
             ~/.cargo/registry/index
-          key: cargo-registry-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock') }}
+          key: cargo-registry-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'compiler/Cargo.lock', 'compiler/tests/generated_project/Cargo.lock') }}
 
       - name: Check formatting
         run: |
           cargo fmt --all -- --check
           cargo fmt --manifest-path fuzz/Cargo.toml -- --check
+          cargo fmt --manifest-path compiler/Cargo.toml -- --check
+          cargo fmt --manifest-path compiler/tests/generated_project/Cargo.toml -- --check
 
       - name: Run Clippy
         run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
@@ -54,6 +56,17 @@ jobs:
 
       - name: Run unit and integration tests
         run: cargo test --workspace --all-features --locked
+
+      - name: Check and test the contract compiler
+        run: |
+          cargo clippy --manifest-path compiler/Cargo.toml --all-targets --locked -- -D warnings
+          cargo test --manifest-path compiler/Cargo.toml --locked
+
+      - name: Build and test generated bindings
+        run: |
+          cargo build --manifest-path compiler/tests/generated_project/Cargo.toml --all-targets --locked
+          cargo clippy --manifest-path compiler/tests/generated_project/Cargo.toml --all-targets --locked -- -D warnings
+          cargo test --manifest-path compiler/tests/generated_project/Cargo.toml --locked
 
       - name: Verify the v1 wire format and golden fixtures
         run: cargo test --locked -p morphrpc --test codec --test protocol_version
@@ -76,14 +89,18 @@ jobs:
           tool: cargo-audit@0.22.2
           fallback: none
 
-      - name: Check both lockfiles against RustSec
+      - name: Check all lockfiles against RustSec
         working-directory: ${{ runner.temp }}
         run: |
           test -f "$GITHUB_WORKSPACE/Cargo.lock"
           test -f "$GITHUB_WORKSPACE/fuzz/Cargo.lock"
+          test -f "$GITHUB_WORKSPACE/compiler/Cargo.lock"
+          test -f "$GITHUB_WORKSPACE/compiler/tests/generated_project/Cargo.lock"
           status=0
           cargo-audit audit --file "$GITHUB_WORKSPACE/Cargo.lock" || status=1
           cargo-audit audit --file "$GITHUB_WORKSPACE/fuzz/Cargo.lock" || status=1
+          cargo-audit audit --file "$GITHUB_WORKSPACE/compiler/Cargo.lock" || status=1
+          cargo-audit audit --file "$GITHUB_WORKSPACE/compiler/tests/generated_project/Cargo.lock" || status=1
           exit "$status"
 
   workflow-lint:
@@ -113,3 +130,22 @@ jobs:
           shellcheck --version
           "$RUNNER_TEMP/actionlint" -color
           shellcheck .devcontainer/setup.sh
+
+  migration:
+    name: Migration assessment
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out the revision under test
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Python
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: '3.11.11'
+
+      - name: Test the static analyzer and reviewed contract handoff
+        run: python -m unittest discover -s skills/fastapi-assessment/tests -v

@@ -36,4 +36,4 @@ cargo fmt --manifest-path compiler/tests/generated_project/Cargo.toml -- --check
 cargo clippy --manifest-path compiler/tests/generated_project/Cargo.toml --all-targets --locked -- -D warnings
 ```
 
-The compiler test invokes a separately locked fixture build, generates Rust at build time, checks golden bytes and malformed inputs, and exercises generated client/server calls using persistent TCP. The root workspace's existing CI commands do not discover this standalone workspace. Add its explicit checks to CI when coordinating with the Performance Lab owner.
+The compiler test invokes a separately locked fixture build, generates Rust at build time, checks golden bytes and malformed inputs, and exercises generated client/server calls using persistent TCP. The CI workflow runs these standalone checks explicitly, including the generated-project build and tests.

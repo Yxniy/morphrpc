@@ -4,6 +4,10 @@ pub mod empty {
     include!(concat!(env!("OUT_DIR"), "/empty.rs"));
 }
 
+pub mod handoff {
+    include!(concat!(env!("OUT_DIR"), "/handoff.rs"));
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -103,5 +107,50 @@ mod tests {
         server.await.unwrap();
         assert_eq!(dispatch(&Handler, 99, &[]).0, MessageKind::Error);
         assert_eq!(dispatch(&Handler, 17, &[]).0, MessageKind::Error);
+    }
+    struct HandoffHandler;
+    impl handoff::UsersService for HandoffHandler {
+        fn get_user(
+            &self,
+            request: handoff::GetUserRequest,
+        ) -> Result<handoff::GetUserResponse, String> {
+            Ok(handoff::GetUserResponse {
+                name: request.user_id,
+                active: true,
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn reviewed_fastapi_contract_uses_generated_bindings_over_v1_tcp() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            runtime::serve_connection(stream, Duration::from_secs(5), |op, payload| {
+                handoff::dispatch(&HandoffHandler, op, payload)
+            })
+            .await
+            .unwrap();
+        });
+        let inner = runtime::Client::connect(address, Duration::from_secs(5))
+            .await
+            .unwrap();
+        let mut client = handoff::UsersClient::new(inner);
+        for user_id in ["Ada", "Grace"] {
+            let request = handoff::GetUserRequest {
+                user_id: user_id.to_owned(),
+            };
+            let response = client.get_user(&request).await.unwrap();
+            assert_eq!(
+                response,
+                handoff::GetUserResponse {
+                    name: user_id.to_owned(),
+                    active: true
+                }
+            );
+        }
+        drop(client);
+        server.await.unwrap();
     }
 }
