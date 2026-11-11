@@ -1,0 +1,113 @@
+name: Benchmarks
+
+on:
+  pull_request:
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: benchmarks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: Benchmark reports
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+        working-directory: candidate
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Check out the revision under test
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: candidate
+          persist-credentials: false
+
+      - name: Check out the main baseline
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.ref == 'main' && github.event.pull_request.base.sha || 'main' }}
+          path: baseline
+          persist-credentials: false
+
+      - name: Install the same Rust compiler for both builds
+        id: toolchain
+        run: |
+          rustup show
+          toolchain=$(rustup show active-toolchain | cut -d ' ' -f 1)
+          printf 'name=%s\n' "$toolchain" >> "$GITHUB_OUTPUT"
+
+      - name: Measure main on this runner
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        working-directory: baseline
+        env:
+          TOOLCHAIN: ${{ steps.toolchain.outputs.name }}
+        run: |
+          out="$RUNNER_TEMP/benchmark-results/baseline"
+          mkdir -p "$out"
+          git rev-parse HEAD > "$out/revision.txt"
+          if [[ ! -f benchmarks/Cargo.toml || ! -f benchmarks/configs/smoke.toml ]]; then
+            echo "This main revision has no benchmark harness with a smoke profile." | tee "$out/status.txt"
+            exit 0
+          fi
+          if ! cargo +"$TOOLCHAIN" run --release --locked -p morphrpc-bench -- \
+            run benchmarks/configs/smoke.toml "$out" 2>&1 | tee "$out/run.log"; then
+            echo "The main benchmark failed. See the baseline run log." | tee "$out/status.txt"
+            exit 1
+          fi
+
+      - name: Measure the pull request merge revision
+        if: github.event_name == 'pull_request'
+        env:
+          TOOLCHAIN: ${{ steps.toolchain.outputs.name }}
+        run: |
+          out="$RUNNER_TEMP/benchmark-results/candidate"
+          mkdir -p "$out"
+          cargo +"$TOOLCHAIN" run --release --locked -p morphrpc-bench -- \
+            run benchmarks/configs/smoke.toml "$out" 2>&1 | tee "$out/run.log"
+
+      - name: Measure full closed-loop and fixed-rate workloads
+        if: github.event_name != 'pull_request'
+        env:
+          TOOLCHAIN: ${{ steps.toolchain.outputs.name }}
+        run: |
+          for profile in representative scheduled; do
+            out="$RUNNER_TEMP/benchmark-results/$profile"
+            mkdir -p "$out"
+            cargo +"$TOOLCHAIN" run --release --locked -p morphrpc-bench -- \
+              run "benchmarks/configs/$profile.toml" "$out" 2>&1 | tee "$out/run.log"
+          done
+
+      - name: Summarize measured results
+        run: |
+          out="$RUNNER_TEMP/benchmark-results"
+          if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
+            python3 .github/scripts/benchmark-summary.py "$out/candidate/results.json" \
+              --baseline "$out/baseline" | tee "$out/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              python3 .github/scripts/benchmark-summary.py "$out/representative/results.json"
+              echo
+              python3 .github/scripts/benchmark-summary.py "$out/scheduled/results.json"
+            } | tee "$out/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload benchmark reports and logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: benchmark-results
+          path: ${{ runner.temp }}/benchmark-results
+          if-no-files-found: warn
+          retention-days: 14
