@@ -29,10 +29,16 @@ class ContractHandoffTest(unittest.TestCase):
         self.assertIsNone(endpoint["contract_candidate"]["operation_id"])
         self.assertTrue(endpoint["blockers"])
         contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
-        self.assertEqual(contract["schema_version"], endpoint["contract_candidate"]["schema_version"])
-        self.assertEqual(contract["methods"][0]["name"], endpoint["contract_candidate"]["method_name"])
+        self.assertEqual(
+            contract["schema_version"], endpoint["contract_candidate"]["schema_version"]
+        )
+        self.assertEqual(
+            contract["methods"][0]["name"], endpoint["contract_candidate"]["method_name"]
+        )
         self.assertEqual(contract["methods"][0]["operation_id"], 1)  # Test-only assignment.
-        for actual, key in zip(contract["messages"], ("request_fields", "response_fields")):
+        for actual, key in zip(
+            contract["messages"], ("request_fields", "response_fields")
+        ):
             expected = [
                 {"name": field["name"], "type": field["type"]["candidate"]}
                 for field in endpoint[key]
