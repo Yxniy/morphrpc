@@ -16,7 +16,7 @@ The integration branch adds explicit compiler and generated-project formatting, 
 
 The checked-in integration fixture derives field candidates from the static FastAPI example, keeps its authentication, side-effect, and operation-ID review blockers visible, and compares them with a manually authored test contract. The generated-project test compiles the resulting contract's bindings and sends repeated calls through the v1 TCP runtime. The fixture's operation ID is a test assignment and is not approval to migrate or shadow the example.
 
-On the combined branch based on `main` at `f875968`, local formatting, Clippy, root workspace tests, compiler and generated-project build/tests, eleven Python analyzer and handoff tests, eight Performance Lab report tests, actionlint, and ShellCheck passed. A local RustSec audit found no known vulnerabilities in the four lockfiles. GitHub Actions must pass on the final integration PR head as well. The integration branch initially used PR #4 head `9d3d57b`; the Performance Lab owner was still validating a newer profiling-workflow revision. Refresh and retest that dependency when its head settles.
+On the combined branch based on `main` at `f875968`, local formatting, Clippy, root workspace tests, compiler and generated-project build/tests, eleven Python analyzer and handoff tests, eight Performance Lab report tests, actionlint, and ShellCheck passed. A local RustSec audit found no known vulnerabilities in the four lockfiles. GitHub Actions must pass on the final integration PR head as well. The integration branch incorporates PR #4 head `7e9eb80`, whose PR checks passed at review time. Refresh the branch and repeat combined checks if any component head changes.
 
 ## Compatibility and remaining risks
 
@@ -33,4 +33,4 @@ At review time GitHub reported that `main` had no active branch protection or ru
 3. Before merging PRs #5 and #6, confirm the integration CI PR has passed against their exact current heads and the chosen PR #4 head. Review and merge PR #5, then PR #6. Until the CI integration PR lands, their standalone checks must be verified on the integration PR or run manually.
 4. Refresh the integration CI branch against the resulting latest `main`. Inspect the final diff, rerun all required checks, and merge the integration CI PR immediately after #6. Require the four correctness and audit checks through repository rules once they exist on `main`.
 
-No merge is performed by this report. If PR #4's Linux profiling validation is failing or a head changes, treat that as a blocker for the affected review and rerun the combined checks against the final heads.
+No PR merge is performed by this report. If a required check fails or a component head changes, resolve the affected review and rerun the combined checks against the final heads.
