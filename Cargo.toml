@@ -1,0 +1,11 @@
+[package]
+name = "morphrpc"
+version = "0.1.0"
+edition = "2024"
+description = "Development-time tooling and a binary RPC runtime for machine-to-machine communication"
+license = "Apache-2.0"
+repository = "https://github.com/Yxniy/morphrpc"
+readme = "README.md"
+
+[workspace]
+resolver = "3"
