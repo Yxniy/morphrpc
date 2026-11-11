@@ -55,6 +55,9 @@ jobs:
       - name: Run unit and integration tests
         run: cargo test --workspace --all-features --locked
 
+      - name: Verify the v1 wire format and golden fixtures
+        run: cargo test --locked -p morphrpc --test codec --test protocol_version
+
       - name: Compile release artifacts
         run: cargo build --release --workspace --all-targets --all-features --locked
 
@@ -92,6 +95,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - name: Test the Performance Lab tooling
+        run: python3 -m unittest discover -s benchmarks/lab
 
       - name: Validate workflows with actionlint and ShellCheck
         env:

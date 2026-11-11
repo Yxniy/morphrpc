@@ -50,7 +50,7 @@ The audit uses the current [RustSec advisory database](https://github.com/RustSe
 | CI / `Dependency audit` | PR, merge queue, push to `main`, weekly | Require. RustSec audit of workspace and fuzz lockfiles. |
 | CI / `Workflow lint` | PR, merge queue, push to `main` | Require. Validates workflow syntax, expressions, and shell scripts. |
 | Coverage / `Test coverage` | PR, push to `main` | Advisory. Workspace coverage totals and a `workspace-lcov` artifact. |
-| Benchmarks / `Benchmark reports` | PR, weekly, manual on `main` | Advisory. PR smoke run and same-run baseline comparison when available. Weekly and manual runs use full closed-loop and fixed-rate profiles. |
+| Benchmarks / `Benchmark reports` | PR, weekly, manual on `main` | Advisory. PR smoke run and same-run baseline comparison when available. Weekly and manual runs use paired closed-loop and fixed-rate profiles when the baseline harness matches. |
 | CodeQL / `CodeQL PR report` | PR | Advisory. Rust findings in a `codeql-pr-sarif` artifact. |
 | CodeQL / `CodeQL Rust` | Push to `main`, weekly | Advisory. Rust findings in the repository Security tab. |
 | Fuzz / `Fuzz frame decoder` | Weekly, manual on `main` | Advisory. AddressSanitizer run with a five-minute fuzzing budget, a per-input timeout, and logs and reproducer artifacts. |
@@ -82,7 +82,7 @@ Release validation uses `cargo package --locked -p morphrpc` and `cargo build --
 
 ## Benchmarks
 
-Run the smoke profile locally, then use the representative and scheduled profiles for more samples. Each run writes `results.json` and `results.csv`.
+Run the smoke profile locally, then use the representative and scheduled profiles for longer workloads. Each run writes `results.json` and `results.csv`.
 
 ```sh
 out=$(mktemp -d)
@@ -92,9 +92,7 @@ for profile in smoke representative scheduled; do
 done
 ```
 
-PR comparisons measure the merge revision and its exact `main` base on one hosted runner, sequentially. For a PR targeting another branch, the baseline is the `main` revision resolved at checkout. The report records both commit IDs. A missing harness, failed baseline, or mismatched configuration, environment, or workload yields a candidate report without timing deltas. GitHub uploads the raw JSON, CSV, logs, and Markdown summary as `benchmark-results`.
-
-The summary groups matching protocols, payloads, and connection counts and reports the median throughput and p95 latency across repetitions. A positive throughput delta means more requests per second. A positive p95 delta means longer tail latency. Compare the raw repetitions and remeasure on a quiet machine before drawing conclusions from hosted-runner timings. Timing deltas never fail the PR. A dedicated runner for trusted revisions and regression thresholds calibrated from repeated baseline measurements are future work. See the [benchmark methodology](../benchmarks/README.md).
+See the [Performance Lab](performance-lab.md) for paired baseline/candidate runs, report regeneration, and advisory hosted measurements. To reproduce the tooling checks, run `python3 -m unittest discover -s benchmarks/lab`. See the [profiling guide](profiling.md) for CPU, heap, and socket diagnostics.
 
 ## Configure protection for `main`
 

@@ -8,5 +8,7 @@
 - Add targeted tests for behavior changes. Test parsing changes with malformed inputs and boundary values. Cover partial I/O, timeouts, and disconnects when changing transport behavior.
 - Preserve backwards compatibility with the documented v1 wire format and its golden fixtures. Document any intentional protocol or security change and its impact in the PR and relevant specifications.
 - Compare equivalent workloads and comparable transport settings when measuring performance. Record reproduction commands, environment details, and observed results. Never invent benchmark results.
+- Use the [Performance Lab](docs/performance-lab.md) for paired comparisons against a committed baseline. Preserve the workload, raw measurements, and uncertainty. Treat shared-runner timings as advisory and use the [profiling guide](docs/profiling.md) for separate diagnostic runs.
+- For an AI-assisted optimization, propose one scoped change, cite profiler or benchmark evidence, run correctness and performance checks, and submit the patch and evidence for independent review.
 - Run `cargo +stable fmt --all -- --check`, `cargo +stable clippy --workspace --all-targets --all-features --locked -- -D warnings`, and `cargo +stable test --workspace --all-features --locked` before submitting Rust changes.
 - Reproduce applicable CI checks locally with the repository toolchain before submitting. Report any checks you could not run. See the [development and CI guide](docs/development.md).

@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "revisions": {
+    "baseline": "bc858a212364ddec0a3a82f1fecbd92ddbc1f95e",
+    "candidate": "3e9aabf34878e8aca879ef4e4290ccf9823dbfa3"
+  },
+  "toolchain": "1.99.1-aarch64-apple-darwin",
+  "compiler": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+  "build_environment": {},
+  "runner": {
+    "kind": "local",
+    "image_os": null,
+    "image_version": null
+  },
+  "config_sha256": "e5a42589ba73fd48724a306a63de6d79632743fd05cb4373ccbaf1a2694e7667",
+  "harness_sha256": {
+    "baseline": "cbc24d2e2f6360849d6c0dad7f3f8a0716650b2416cab7a19f59b8b86ce48fe6",
+    "candidate": "cbc24d2e2f6360849d6c0dad7f3f8a0716650b2416cab7a19f59b8b86ce48fe6"
+  },
+  "comparison_unavailable": null,
+  "orders": [
+    [
+      "baseline",
+      "candidate"
+    ],
+    [
+      "candidate",
+      "baseline"
+    ],
+    [
+      "baseline",
+      "candidate"
+    ],
+    [
+      "candidate",
+      "baseline"
+    ],
+    [
+      "baseline",
+      "candidate"
+    ],
+    [
+      "candidate",
+      "baseline"
+    ],
+    [
+      "baseline",
+      "candidate"
+    ],
+    [
+      "candidate",
+      "baseline"
+    ],
+    [
+      "baseline",
+      "candidate"
+    ],
+    [
+      "candidate",
+      "baseline"
+    ],
+    [
+      "baseline",
+      "candidate"
+    ],
+    [
+      "candidate",
+      "baseline"
+    ]
+  ]
+}

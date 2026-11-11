@@ -26,3 +26,7 @@ done
 ```
 
 The two environment settings are inherited by the child server. Record the host, compiler, exact patch, configuration, and the full output when repeating this diagnostic. The patched binary reports a dirty worktree, as expected. The output directories contain measurements for all three protocols, but only the gRPC rows in this experiment vary the settings and support the within-gRPC comparison.
+
+## Client request encoding
+
+The [client request encoding experiment](client-encode/README.md) profiles the two request-encoding calls and compares a single-encode candidate against the unchanged runtime.

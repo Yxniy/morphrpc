@@ -39,6 +39,12 @@ cargo test --workspace --all-features --locked
 
 See the [development and CI guide](docs/development.md) for full validation, workflow artifacts, and branch protection.
 
+## Performance Lab
+
+Build two committed revisions in release mode, alternate paired runs with one workload, and generate JSON, CSV, and a PR-ready Markdown report. The report includes throughput, latency percentiles, message sizes, available resource measurements, and run-to-run uncertainty. GitHub-hosted timings are advisory.
+
+See the [comparison commands](docs/performance-lab.md), [macOS and Linux profiling guide](docs/profiling.md), and [client request-encoding experiment](benchmarks/experiments/client-encode/README.md).
+
 ## Local example
 
 Run the [get_user example](examples/README.md) with a server and client in separate terminals. The TCP transport is unencrypted and intended for local experiments.
