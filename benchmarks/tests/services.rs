@@ -1,6 +1,6 @@
 use morphrpc::{protocol::MessageKind, runtime::Client};
 use morphrpc_bench::{
-    get_user, morph_request, morph_response,
+    morph_request, morph_response,
     proto::{users_client::UsersClient, GetUserRequest},
     Query, UserData,
 };
@@ -43,13 +43,17 @@ async fn all_services_return_equivalent_responses_on_persistent_connections() {
         } else {
             None
         };
-        for size in [0, 1024, 65536] {
+        for size in [0, 1024, 65536, 900000] {
             for id in [1, 2] {
                 let query = Query {
                     id,
                     payload_size: size,
                 };
-                let expected = get_user(&query).unwrap();
+                let expected = UserData {
+                    id,
+                    name: if id == 1 { "Ada" } else { "Grace" }.to_owned(),
+                    data: "x".repeat(size as usize),
+                };
                 let actual = match protocol {
                     "morphrpc" => {
                         let response = morph
@@ -99,37 +103,79 @@ async fn all_services_return_equivalent_responses_on_persistent_connections() {
             payload_size: 0,
         };
         match protocol {
-            "morphrpc" => assert_eq!(
-                morph
+            "morphrpc" => {
+                let response = morph
                     .as_mut()
                     .unwrap()
                     .call(1, morph_request(&invalid))
                     .await
-                    .unwrap()
-                    .kind,
-                MessageKind::Error
-            ),
-            "http" => assert_eq!(
-                http.post(format!("http://{address}/get_user"))
+                    .unwrap();
+                assert_eq!(response.kind, MessageKind::Error);
+                assert_eq!(response.payload, b"user not found");
+            }
+            "http" => {
+                let response = http
+                    .post(format!("http://{address}/get_user"))
                     .json(&invalid)
                     .send()
                     .await
-                    .unwrap()
-                    .status(),
-                reqwest::StatusCode::BAD_REQUEST
-            ),
-            "grpc" => assert_eq!(
-                grpc.as_mut()
+                    .unwrap();
+                assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
+                assert_eq!(response.text().await.unwrap(), "user not found");
+            }
+            "grpc" => {
+                let status = grpc
+                    .as_mut()
                     .unwrap()
                     .get_user(GetUserRequest {
                         id: 99,
-                        payload_size: 0
+                        payload_size: 0,
                     })
                     .await
-                    .unwrap_err()
-                    .code(),
-                tonic::Code::InvalidArgument
-            ),
+                    .unwrap_err();
+                assert_eq!(status.code(), tonic::Code::InvalidArgument);
+                assert_eq!(status.message(), "user not found");
+            }
+            _ => unreachable!(),
+        }
+        let oversized = Query {
+            id: 1,
+            payload_size: 900001,
+        };
+        match protocol {
+            "morphrpc" => {
+                let response = morph
+                    .as_mut()
+                    .unwrap()
+                    .call(1, morph_request(&oversized))
+                    .await
+                    .unwrap();
+                assert_eq!(response.kind, MessageKind::Error);
+                assert_eq!(response.payload, b"payload too large");
+            }
+            "http" => {
+                let response = http
+                    .post(format!("http://{address}/get_user"))
+                    .json(&oversized)
+                    .send()
+                    .await
+                    .unwrap();
+                assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
+                assert_eq!(response.text().await.unwrap(), "payload too large");
+            }
+            "grpc" => {
+                let status = grpc
+                    .as_mut()
+                    .unwrap()
+                    .get_user(GetUserRequest {
+                        id: 1,
+                        payload_size: 900001,
+                    })
+                    .await
+                    .unwrap_err();
+                assert_eq!(status.code(), tonic::Code::InvalidArgument);
+                assert_eq!(status.message(), "payload too large");
+            }
             _ => unreachable!(),
         }
         server.abort();

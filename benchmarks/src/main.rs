@@ -248,6 +248,37 @@ fn percentile(sorted: &[f64], percent: usize) -> f64 {
     sorted[(sorted.len() * percent).div_ceil(100) - 1]
 }
 
+struct WorkerResult {
+    service_latencies: Vec<f64>,
+    scheduled_latencies: Vec<f64>,
+    completed_at: Instant,
+}
+
+async fn collect_measurements(
+    mut workers: JoinSet<Result<WorkerResult, AnyError>>,
+    start: Instant,
+    requests: usize,
+) -> Result<(Vec<f64>, Vec<f64>, Duration), AnyError> {
+    let mut completed_at = start;
+    let mut results = Vec::new();
+    while let Some(result) = workers.join_next().await {
+        let result = result??;
+        completed_at = completed_at.max(result.completed_at);
+        results.push(result);
+    }
+    let mut service_latencies = Vec::with_capacity(requests);
+    let mut scheduled_latencies = Vec::new();
+    for result in results {
+        service_latencies.extend(result.service_latencies);
+        scheduled_latencies.extend(result.scheduled_latencies);
+    }
+    Ok((
+        service_latencies,
+        scheduled_latencies,
+        completed_at.duration_since(start),
+    ))
+}
+
 async fn measure(
     protocol: &str,
     address: SocketAddr,
@@ -267,7 +298,7 @@ async fn measure(
     let scheduled_start = Arc::new(OnceLock::<Instant>::new());
     let (ready_tx, mut ready_rx) = tokio::sync::mpsc::channel(concurrency);
     for index in 0..concurrency {
-        let mut connection = Connection::connect(protocol, address).await?;
+        let protocol = protocol.to_owned();
         let query = query.clone();
         let expected = expected.clone();
         let barrier = barrier.clone();
@@ -277,14 +308,15 @@ async fn measure(
         let warmup = share(cfg.warmup_requests, concurrency, index);
         let requests = share(cfg.requests, concurrency, index);
         workers.spawn(async move {
+            let mut connection =
+                timeout(DEADLINE, Connection::connect(&protocol, address)).await??;
             for _ in 0..warmup {
-                if connection.call(&query).await? != expected {
-                    return Err::<(Vec<f64>, Vec<f64>), AnyError>(
-                        "warmup response mismatch".into(),
-                    );
+                if timeout(DEADLINE, connection.call(&query)).await?? != expected {
+                    return Err::<WorkerResult, AnyError>("warmup response mismatch".into());
                 }
             }
             ready_tx.send(()).await.map_err(|_| "benchmark stopped")?;
+            drop(ready_tx);
             barrier.wait().await;
             let mut latencies = Vec::with_capacity(requests);
             let mut scheduled_latencies = Vec::with_capacity(requests);
@@ -298,7 +330,7 @@ async fn measure(
                     tokio::time::sleep_until(at.into()).await;
                 }
                 let start = Instant::now();
-                let result = connection.call(&query).await?;
+                let result = timeout(DEADLINE, connection.call(&query)).await??;
                 let end = Instant::now();
                 latencies.push(end.duration_since(start).as_secs_f64() * 1_000_000.0);
                 if let Some(at) = scheduled {
@@ -308,7 +340,11 @@ async fn measure(
                     return Err("response mismatch".into());
                 }
             }
-            Ok((latencies, scheduled_latencies))
+            Ok(WorkerResult {
+                service_latencies: latencies,
+                scheduled_latencies,
+                completed_at: Instant::now(),
+            })
         });
     }
     drop(ready_tx);
@@ -321,14 +357,9 @@ async fn measure(
     let start = Instant::now();
     scheduled_start.set(start).expect("start set once");
     barrier.wait().await;
-    let mut scheduled_latencies = Vec::new();
-    let mut latencies = Vec::with_capacity(cfg.requests);
-    while let Some(result) = workers.join_next().await {
-        let (service, scheduled) = result??;
-        latencies.extend(service);
-        scheduled_latencies.extend(scheduled);
-    }
-    let elapsed = start.elapsed().as_secs_f64();
+    let (mut latencies, mut scheduled_latencies, elapsed) =
+        collect_measurements(workers, start, cfg.requests).await?;
+    let elapsed = elapsed.as_secs_f64();
     latencies.sort_unstable_by(f64::total_cmp);
     scheduled_latencies.sort_unstable_by(f64::total_cmp);
     let (request, response, framing) = sizes(protocol, &query, &expected)?;
@@ -384,6 +415,7 @@ struct Report {
     os: Option<String>,
     cpu: Option<String>,
     rustc: Option<String>,
+    build_rustc: &'static str,
     revision: Option<String>,
     working_tree_dirty: Option<bool>,
     cargo_lock: &'static str,
@@ -455,6 +487,7 @@ async fn main() -> Result<(), AnyError> {
         os: command_output("uname", &["-srvm"]),
         cpu,
         rustc: command_output("rustc", &["--version"]),
+        build_rustc: env!("BENCH_BUILD_RUSTC"),
         revision: command_output("git", &["rev-parse", "HEAD"]),
         working_tree_dirty: command_output("git", &["status", "--porcelain"])
             .map(|s| !s.is_empty()),
@@ -476,4 +509,29 @@ async fn main() -> Result<(), AnyError> {
         out.display()
     );
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn throughput_interval_excludes_worker_teardown_and_result_collection() {
+        let start = Instant::now();
+        let mut workers = JoinSet::new();
+        for delay in [10, 20] {
+            workers.spawn(async move {
+                let completed_at = start + Duration::from_millis(delay);
+                sleep(Duration::from_millis(40)).await;
+                Ok(WorkerResult {
+                    service_latencies: vec![delay as f64],
+                    scheduled_latencies: Vec::new(),
+                    completed_at,
+                })
+            });
+        }
+        let (latencies, _, elapsed) = collect_measurements(workers, start, 2).await.unwrap();
+        assert_eq!(latencies.len(), 2);
+        assert_eq!(elapsed, Duration::from_millis(20));
+    }
 }

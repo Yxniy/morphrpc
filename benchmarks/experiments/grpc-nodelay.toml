@@ -1,0 +1,7 @@
+requests = 2000
+warmup_requests = 300
+repetitions = 3
+concurrency = [8]
+[[profiles]]
+name = "large"
+payload_size = 65536
