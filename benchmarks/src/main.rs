@@ -452,7 +452,7 @@ async fn main() -> Result<(), AnyError> {
     let report = Report {
         config: cfg,
         timestamp_utc: command_output("date", &["-u", "+%Y-%m-%dT%H:%M:%SZ"]),
-        os: command_output("uname", &["-a"]),
+        os: command_output("uname", &["-srvm"]),
         cpu,
         rustc: command_output("rustc", &["--version"]),
         revision: command_output("git", &["rev-parse", "HEAD"]),
