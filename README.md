@@ -2,7 +2,7 @@
 
 MorphRPC is an open-source project for generating, optimizing, and validating binary RPC protocols for machine-to-machine communication. The goal is to let developers describe what services exchange and generate typed clients and servers that preserve the existing service contract.
 
-The initial workspace provides a protocol compatibility check and a test. The networking runtime, code generator, and migration tooling are planned.
+The workspace provides a bounded v1 frame codec and a [wire format specification](docs/wire-format-v1.md). A Tokio TCP runtime and local `get_user` example exercise persistent request-response connections. The code generator and migration tooling are planned.
 
 ## Why machine-native protocols
 
@@ -36,6 +36,10 @@ cargo +stable fmt --all -- --check
 cargo +stable clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo +stable test --workspace --all-features --locked
 ```
+
+## Local example
+
+Run the [get_user example](examples/README.md) with a server and client in separate terminals. The TCP transport is unencrypted and intended for local experiments.
 
 ## Roadmap
 

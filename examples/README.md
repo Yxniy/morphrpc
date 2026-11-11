@@ -1,3 +1,12 @@
-# Examples
+# get_user example
 
-The first example will run a local Tokio TCP server and a client that sends multiple `get_user(user_id)` requests over a persistent connection. Once the example runs, document its commands, expected output, and loopback setup here.
+Start the server in one terminal and the client in another.
+
+```sh
+cargo run --example get_user -- server
+cargo run --example get_user -- client
+```
+
+The client sends two requests on one connection and prints `user 1: Ada` and `user 2: Grace`. The server listens on `127.0.0.1:8080`. Stop it with Ctrl-C.
+
+Operation `1` accepts an eight-byte big-endian user ID. A successful response contains the eight-byte ID followed by a UTF-8 name. Error payloads contain UTF-8 text. The example uses an in-memory lookup and binds to loopback for local testing.
