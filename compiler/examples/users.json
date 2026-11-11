@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "service": "Users",
+  "messages": [
+    {"name": "GetUserRequest", "fields": [{"name": "user_id", "type": "u64"}]},
+    {"name": "GetUserResponse", "fields": [{"name": "name", "type": "string"}]}
+  ],
+  "methods": [
+    {"name": "get_user", "operation_id": 1, "request": "GetUserRequest", "response": "GetUserResponse"}
+  ]
+}

@@ -1,0 +1,17 @@
+# Keep hosted runs bounded on Linux with the audited TCP settings.
+requests = 80
+warmup_requests = 16
+repetitions = 1
+concurrency = [1, 8]
+
+[[profiles]]
+name = "tiny"
+payload_size = 0
+
+[[profiles]]
+name = "medium"
+payload_size = 1024
+
+[[profiles]]
+name = "large"
+payload_size = 65536

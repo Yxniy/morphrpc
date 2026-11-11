@@ -1,0 +1,9 @@
+# Tiny responses keep the experiment focused on the fixed-size request path.
+requests = 20000
+warmup_requests = 1000
+repetitions = 1
+concurrency = [1, 8]
+
+[[profiles]]
+name = "tiny"
+payload_size = 0
