@@ -53,7 +53,7 @@ Open the trace in Instruments and select the launched PID. Use the Time Profiler
 
 ## Linux
 
-Install the `perf` tools matching the kernel, `heaptrack`, and `strace` through your distribution. Use a host where the profiling user has access to the required perf events. The following shell wrapper records the driver PID before executing the benchmark, preserving the PID for filtering. Perf inherits child processes and threads by default. Its `task-clock` totals therefore cover the driver and its children. The Linux diagnostic profile uses tiny responses and 32 connections to keep the workload practical when gRPC encounters delayed ACKs with the audited TCP settings. For a short syscall trace at lower concurrency, use the smoke profile.
+Install the `perf` tools matching the kernel, `heaptrack`, and `strace` through your distribution. Use a host where the profiling user has access to the required perf events. Check `cat /proc/sys/kernel/perf_event_paranoid` if perf reports an access error. GitHub-hosted Ubuntu runners can restrict these events, and a runner administrator controls that setting. The following shell wrapper records the driver PID before executing the benchmark, preserving the PID for filtering. Perf inherits child processes and threads by default. Its `task-clock` totals therefore cover the driver and its children. The Linux diagnostic profile uses tiny responses and 32 connections to keep the workload practical when gRPC encounters delayed ACKs with the audited TCP settings. For a short syscall trace at lower concurrency, use the smoke profile.
 
 ```sh
 cat > "$out/linux-profile.toml" <<'TOML'
@@ -75,7 +75,7 @@ perf record -e cpu-clock -g --call-graph dwarf -o "$out/perf.data" -- \
 perf report --stdio --pid "$(cat "$out/driver.pid")" -i "$out/perf.data"
 
 heaptrack -o "$out/heap" "$binary" run "$out/linux-profile.toml" "$out/heap-run"
-# Pass the capture filename printed by heaptrack.
+# Pass the capture filename printed by heaptrack, including its .zst or .gz suffix.
 heaptrack_print CAPTURE_FILE > "$out/heap.txt"
 
 strace -ff -tt -T -y -e trace=%network,read,write -o "$out/socket" \
