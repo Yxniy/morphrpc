@@ -1,0 +1,69 @@
+name: Benchmarks
+
+on:
+  pull_request:
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+    inputs:
+      baseline:
+        description: Baseline commit reachable from main (defaults to main's first parent)
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: benchmarks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: Benchmark reports
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Check out the revision under test
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install the pinned Rust compiler for both builds
+        run: rustup show
+
+      - name: Run paired benchmarks
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          MANUAL_BASE: ${{ inputs.baseline }}
+        run: |
+          profiles=(hosted-closed hosted-scheduled)
+          pairs=8
+          if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
+            baseline="$PR_BASE"
+            profiles=(smoke)
+            pairs=2
+          else
+            baseline=$(git rev-parse --verify --end-of-options "${MANUAL_BASE:-HEAD^1}^{commit}")
+            git merge-base --is-ancestor "$baseline" HEAD
+          fi
+          for profile in "${profiles[@]}"; do
+            out="$RUNNER_TEMP/benchmark-results/$profile"
+            python3 benchmarks/lab/perf_lab.py compare "$baseline" HEAD \
+              --config "benchmarks/configs/$profile.toml" --output "$out" --pairs "$pairs" \
+              --run-timeout-seconds 180 --allow-unavailable-baseline
+            cat "$out/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Upload benchmark reports and logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: benchmark-results
+          path: ${{ runner.temp }}/benchmark-results
+          if-no-files-found: warn
+          retention-days: 14

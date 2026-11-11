@@ -41,3 +41,5 @@ The [November 2026 loopback baseline](results/2026-11-10-apple-m5-pro/README.md)
 The [TCP_NODELAY diagnostic](experiments/README.md) records a controlled investigation of the original gRPC 64 KiB outliers. Its per-protocol setting changes are for diagnosis and are not comparable across protocols.
 
 The checked-in historical baseline is about 200 KiB including a duplicated lockfile and JSON/CSV representations. This small dataset preserves provenance for the original findings. Store future large raw traces and repeated-run datasets as compressed CI artifacts or release attachments, with checksums and a concise versioned summary in Git.
+
+See the [Performance Lab](../docs/performance-lab.md) for paired revision comparisons and the [profiling guide](../docs/profiling.md) for CPU, heap, and socket diagnostics.
