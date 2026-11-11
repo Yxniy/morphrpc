@@ -86,6 +86,7 @@ jobs:
           from pathlib import Path
           text = Path(".github/workflows/benchmarks.yml").read_text()
           block = text.split("      - name: Run paired benchmarks\n", 1)[1].split("        run: |\n", 1)[1].split("\n      - name:", 1)[0]
+          block = block.replace('if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then', 'if false; then')
           Path("/tmp/scheduled-validation.sh").write_text("\n".join(line[10:] for line in block.splitlines()) + "\n")
           PY
           bash -eo pipefail /tmp/scheduled-validation.sh
@@ -107,6 +108,7 @@ jobs:
           persist-credentials: false
       - name: Install Linux profiling tools
         run: sudo apt-get update && sudo apt-get install -y linux-tools-generic heaptrack strace
+          sudo sysctl -w kernel.perf_event_paranoid=1
       - name: Exercise Linux profiling commands
         run: |
           mkdir -p "$RUNNER_TEMP/linux-profile"
@@ -117,11 +119,11 @@ jobs:
           from pathlib import Path
           text = Path("docs/profiling.md").read_text().split("## Linux", 1)[1]
           block = text.split("```sh\n", 1)[1].split("\n```", 1)[0]
-          block = block.replace("heaptrack_print CAPTURE_FILE", 'heaptrack_print "$out/heap.gz"')
+          block = block.replace("heaptrack_print CAPTURE_FILE", 'heaptrack_print "$out/heap.zst"')
           Path("/tmp/profile-validation.sh").write_text(block + "\n")
           PY
           export out binary
-          bash /tmp/profile-validation.sh > "$out/profile.log" 2>&1
+          bash -ex /tmp/profile-validation.sh > "$out/profile.log" 2>&1
           cat "$out/profile.log"
       - name: Upload validation data
         if: always()
