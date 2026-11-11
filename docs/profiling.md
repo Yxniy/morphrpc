@@ -2,7 +2,7 @@
 
 Use a release build with debug symbols on a quiet machine. Treat profiled runs as diagnostics. Use a fresh uninstrumented build and the [Performance Lab](performance-lab.md) for timing comparisons. Keep the same workload, build settings, OS, and profiler version when comparing profiles. macOS uses kqueue and the system malloc implementation. Linux uses epoll and its host allocator. Sampling, allocator sizes, syscall names, and packet capture points differ across platforms.
 
-From the repository root, with a pinned Rust toolchain on `PATH`:
+Build the profiling binary from the repository root with the pinned Rust toolchain on `PATH`.
 
 ```sh
 out=$(mktemp -d)
@@ -28,7 +28,7 @@ xcrun xctrace record --template 'System Trace' --time-limit 90s \
 xcrun xctrace export --input "$out/cpu.trace" --toc > "$out/cpu-toc.xml"
 ```
 
-If Allocations cannot attach, sign a temporary copy of the local debug-symbol build and use that copy as the launch target:
+If Allocations cannot attach, sign a temporary copy of the local debug-symbol build and launch that copy.
 
 ```sh
 cp "$binary" "$out/morphrpc-bench-debug"
