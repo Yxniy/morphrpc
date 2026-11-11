@@ -1,0 +1,14 @@
+[package]
+name = "generated-contract-integration"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+morphrpc = { path = "../../.." }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net"] }
+
+[build-dependencies]
+morphrpc-compiler = { path = "../.." }
