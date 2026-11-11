@@ -35,3 +35,5 @@ cargo test --workspace --all-features --locked
 ```
 
 The service integration test compares successful results across all three protocols for both users and all payload sizes, then checks an unknown-user error. It reuses a connection for multiple requests. The core runtime tests cover framing, partial I/O, deadlines, and disconnects.
+
+The [November 2026 loopback baseline](results/2026-11-10-apple-m5-pro/README.md) includes measured results, limitations, and proposed follow-up investigations.
