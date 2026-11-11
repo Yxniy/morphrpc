@@ -1,0 +1,17 @@
+# Each worker owns one persistent connection and sends sequential requests.
+requests = 10000
+warmup_requests = 1000
+repetitions = 3
+concurrency = [1, 8]
+
+[[profiles]]
+name = "tiny"
+payload_size = 0
+
+[[profiles]]
+name = "medium"
+payload_size = 1024
+
+[[profiles]]
+name = "large"
+payload_size = 65536

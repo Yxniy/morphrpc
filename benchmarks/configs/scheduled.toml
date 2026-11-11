@@ -1,0 +1,18 @@
+# Fixed aggregate offered rate, spread across the persistent connections.
+requests = 2000
+warmup_requests = 200
+repetitions = 3
+concurrency = [1, 8]
+target_rps = 5000
+
+[[profiles]]
+name = "tiny"
+payload_size = 0
+
+[[profiles]]
+name = "medium"
+payload_size = 1024
+
+[[profiles]]
+name = "large"
+payload_size = 65536

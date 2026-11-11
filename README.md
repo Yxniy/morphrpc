@@ -44,7 +44,7 @@ Run the [get_user example](examples/README.md) with a server and client in separ
 ## Roadmap
 
 1. Specify versioned, length-prefixed framing and build a local Tokio TCP `get_user` example with bounded messages, request correlation, and malformed-input tests.
-2. Publish reproducible baselines against equivalent HTTP/JSON and gRPC services.
+2. Run and extend the [benchmark suite](benchmarks/README.md) against equivalent HTTP/JSON and gRPC services.
 3. Generate typed clients and servers from a shared schema and test compatibility across versions.
 4. Pilot AI-assisted migration for selected FastAPI endpoints with differential tests and opt-in rollout.
 5. Evaluate workload-specific encodings and add secure transports, starting with TLS and then exploring QUIC.

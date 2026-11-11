@@ -1,0 +1,5 @@
+syntax = "proto3";
+package bench;
+service Users { rpc GetUser(GetUserRequest) returns (User); }
+message GetUserRequest { uint64 id = 1; uint32 payload_size = 2; }
+message User { uint64 id = 1; string name = 2; string data = 3; }
