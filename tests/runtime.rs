@@ -1,5 +1,5 @@
 use morphrpc::{
-    protocol::{self, Frame, MessageKind},
+    protocol::{self, CodecError, Frame, MessageKind},
     runtime::{self, Client, Error},
 };
 use std::{io, time::Duration};
@@ -112,6 +112,44 @@ async fn server_detects_truncated_frames_and_idle_timeout() {
     });
     let _stream = TcpStream::connect(address).await.unwrap();
     assert!(matches!(server.await.unwrap(), Err(Error::Timeout)));
+}
+
+#[tokio::test]
+async fn server_closes_malformed_connections_before_dispatch() {
+    let oversized = 1_048_577_u32.to_be_bytes();
+    let mut unsupported = *include_bytes!("fixtures/v1/empty-request.bin");
+    unsupported[4] = 2;
+
+    for (bytes, expected) in [
+        (
+            oversized.as_slice(),
+            CodecError::FrameTooLarge { length: 1_048_577 },
+        ),
+        (unsupported.as_slice(), CodecError::UnsupportedVersion(2)),
+    ] {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            runtime::serve_connection(stream, DEADLINE, |_, _| {
+                panic!("malformed frame reached the dispatcher")
+            })
+            .await
+        });
+
+        let mut stream = TcpStream::connect(address).await.unwrap();
+        stream.write_all(bytes).await.unwrap();
+        // Keep the write side open. An oversized prefix must be rejected
+        // without waiting for a body or an EOF.
+        assert!(matches!(server.await.unwrap(), Err(Error::Codec(error)) if error == expected));
+        assert_eq!(
+            tokio::time::timeout(DEADLINE, stream.read(&mut [0]))
+                .await
+                .unwrap()
+                .unwrap(),
+            0
+        );
+    }
 }
 
 #[tokio::test]

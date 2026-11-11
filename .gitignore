@@ -18,3 +18,10 @@ dist/
 
 # macOS
 .DS_Store
+
+# cargo-fuzz
+/fuzz/target/
+/fuzz/artifacts/
+/fuzz/corpus/
+/fuzz/coverage/
+/lcov.info

@@ -28,14 +28,16 @@ See the [architecture notes](docs/architecture.md) for implementation boundaries
 
 ## Development
 
-Use stable Rust with `rustfmt` and `clippy` installed.
+Use the stable Rust release pinned in `rust-toolchain.toml`. GitHub Codespaces installs the toolchain and validation tools from `.devcontainer/`.
 
 ```sh
-rustup toolchain install stable --profile minimal --component rustfmt --component clippy
-cargo +stable fmt --all -- --check
-cargo +stable clippy --workspace --all-targets --all-features --locked -- -D warnings
-cargo +stable test --workspace --all-features --locked
+rustup show
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo test --workspace --all-features --locked
 ```
+
+See the [development and CI guide](docs/development.md) for full validation, workflow artifacts, and branch protection.
 
 ## Local example
 
