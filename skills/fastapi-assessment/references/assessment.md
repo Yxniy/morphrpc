@@ -1,0 +1,23 @@
+# Assessment format
+
+The analyzer requires Python 3.9 or newer and uses the standard library. From the repository root, run:
+
+```sh
+python3 skills/fastapi-assessment/scripts/analyze.py path/to/app > assessment.json
+```
+
+Choose an output location outside the source tree when the application must remain unchanged. The script itself only reads source and writes its result to standard output. It does not import the project, connect to the network, or produce adapters.
+
+The JSON root includes `assessment_version` 1, `analysis` set to `static_ast_only`, `scope`, `limitations`, `endpoints`, `diagnostics`, and an analysis-only `migration_plan`. `scope.python_files_discovered` counts candidate files, including files later rejected because they are unreadable, malformed, or too large. Paths are relative to the scanned directory, or the filename when scanning one file. Endpoints carry source and registration locations, method, resolved `path` when known, request and response fields, dependency signals, blockers, and unassigned service, message names, and `contract_candidate.operation_id`. The `contract_candidate.schema_version` identifies the proposed compiler format and is independent of `assessment_version`. Fields include the Python annotation, a possible contract type, required status, source and blockers. `int` has no automatic mapping because Python integers are signed and unbounded while the proposed contract offers unsigned types. `str`, `bytes`, and `bool` produce candidate `string`, `bytes`, and `bool` types that still require review of HTTP and framework semantics.
+
+The proposed compiler contract uses `schema_version`, a service name, ordered named messages with `{name, type}` fields, and methods with nonzero `operation_id`, request, and response message references. The assessment deliberately leaves those choices to review. Field and method candidates must use lowercase ASCII snake_case and avoid Rust keywords; the method name `new` is also reserved. Confirm service and message type identifiers, unique names, operation IDs, and field order and resolve all blockers before drafting a contract. Error response behavior, defaults, path/query/body distinctions, data validation, aliases, coercion, HTTP status codes, authentication, and side effects can change application behavior even when types look similar.
+
+Try the bundled example with `python3 skills/fastapi-assessment/scripts/analyze.py examples/migration/fastapi_service.py`.
+
+The scanner recognizes module-level `FastAPI` and `APIRouter` assignments using direct or aliased imports from `fastapi`, module-level functions decorated with the standard single-method route decorators, same-file router mounts with literal prefixes, and directly declared fields of same-file Pydantic `BaseModel` classes. It recognizes visible `Depends` and `Security` calls, including direct import aliases. It reports unresolved local or imported router mounts and unsupported route-registration calls where they are syntactically visible. A returned path is relative to the discovered application registration and can differ from the deployed URL because of reverse proxies or external mounting.
+
+The analyzer cannot establish complete route coverage or whether an endpoint is safe to shadow. Imported models and routers, nested factories, transitive router mounts, dynamically registered routes, conditional definitions, class inheritance, validators, model aliases, middleware, global dependencies, security policies, and response serialization need manual investigation. An empty endpoint list is not proof that an application exposes no endpoints. Authentication is always `review_required` and side effects are always `unknown`. A missing signal is not evidence of public access or read-only behavior.
+
+Unreadable, oversized, malformed, or symbolic-link sources and unresolved registration calls produce diagnostics. Directory scans omit common environment and cache directories and do not follow symbolic links. Individual files are limited to 1 MiB and directory scans to 10,000 Python files. Skipped areas and diagnostics make coverage incomplete. Results are stable for the same source tree and Python version; no timestamp, absolute path, or environment-specific data is added.
+
+Before any future migration, establish how the existing application handles inputs, security, failures and side effects. Test proposed mappings against isolated fixtures. Retain the HTTP route during rollout, define traffic selection and operational monitoring, and ensure operators can return all traffic to the existing route. Run live shadow comparisons only when duplicate execution is confirmed harmless or the side-effecting system is isolated.

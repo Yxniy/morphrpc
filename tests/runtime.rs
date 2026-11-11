@@ -1,5 +1,5 @@
 use morphrpc::{
-    protocol::{self, Frame, MessageKind},
+    protocol::{self, CodecError, Frame, MessageKind},
     runtime::{self, Client, Error},
 };
 use std::{io, time::Duration};
@@ -115,6 +115,44 @@ async fn server_detects_truncated_frames_and_idle_timeout() {
 }
 
 #[tokio::test]
+async fn server_closes_malformed_connections_before_dispatch() {
+    let oversized = 1_048_577_u32.to_be_bytes();
+    let mut unsupported = *include_bytes!("fixtures/v1/empty-request.bin");
+    unsupported[4] = 2;
+
+    for (bytes, expected) in [
+        (
+            oversized.as_slice(),
+            CodecError::FrameTooLarge { length: 1_048_577 },
+        ),
+        (unsupported.as_slice(), CodecError::UnsupportedVersion(2)),
+    ] {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            runtime::serve_connection(stream, DEADLINE, |_, _| {
+                panic!("malformed frame reached the dispatcher")
+            })
+            .await
+        });
+
+        let mut stream = TcpStream::connect(address).await.unwrap();
+        stream.write_all(bytes).await.unwrap();
+        // Keep the write side open. An oversized prefix must be rejected
+        // without waiting for a body or an EOF.
+        assert!(matches!(server.await.unwrap(), Err(Error::Codec(error)) if error == expected));
+        assert_eq!(
+            tokio::time::timeout(DEADLINE, stream.read(&mut [0]))
+                .await
+                .unwrap()
+                .unwrap(),
+            0
+        );
+    }
+}
+
+#[tokio::test]
 async fn client_rejects_mismatched_response_and_disconnect() {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
@@ -156,5 +194,34 @@ async fn client_rejects_mismatched_response_and_disconnect() {
         client.call(1, vec![]).await,
         Err(Error::Disconnected)
     ));
+    server.await.unwrap();
+}
+
+#[tokio::test]
+async fn local_encoding_errors_preserve_connection_and_request_id() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = tokio::spawn(async move {
+        let (stream, _) = listener.accept().await.unwrap();
+        runtime::serve_connection(stream, DEADLINE, |_, payload| {
+            (MessageKind::Response, payload.to_vec())
+        })
+        .await
+        .unwrap();
+    });
+
+    let mut client = Client::connect(address, DEADLINE).await.unwrap();
+    assert!(matches!(
+        client.call(0, vec![]).await,
+        Err(Error::Codec(CodecError::InvalidOperation))
+    ));
+    assert!(matches!(
+        client.call(1, vec![0; protocol::MAX_FRAME_LEN - 11]).await,
+        Err(Error::Codec(CodecError::FrameTooLarge { length }))
+            if length == protocol::MAX_FRAME_LEN + 1
+    ));
+    let response = client.call(1, vec![42]).await.unwrap();
+    assert_eq!((response.request_id, response.payload), (0, vec![42]));
+    drop(client);
     server.await.unwrap();
 }

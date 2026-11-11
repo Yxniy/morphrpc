@@ -1,0 +1,53 @@
+name: Release validation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Validate release artifacts
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install the pinned Rust toolchain
+        run: rustup show
+
+      - name: Test the workspace
+        run: cargo test --workspace --all-features --locked
+
+      - name: Verify the crate package and build the example
+        run: |
+          cargo package --locked -p morphrpc
+          cargo build --release --locked -p morphrpc --example get_user
+
+      - name: Stage versioned artifacts and checksums
+        env:
+          TARGET_PLATFORM: x86_64-unknown-linux-gnu
+        run: |
+          version=$(cargo metadata --locked --no-deps --format-version 1 | jq -er '.packages[] | select(.name == "morphrpc") | .version')
+          out="$RUNNER_TEMP/morphrpc-release"
+          mkdir -p "$out"
+          cp "target/package/morphrpc-${version}.crate" "$out/"
+          tar -czf "$out/morphrpc-get-user-${version}-${TARGET_PLATFORM}.tar.gz" \
+            -C target/release/examples get_user
+          cd "$out"
+          sha256sum ./*.crate ./*.tar.gz > SHA256SUMS
+          printf 'revision=%s\n' "$GITHUB_SHA" > build-info.txt
+          rustc -vV >> build-info.txt
+          (cd "$GITHUB_WORKSPACE" && sha256sum Cargo.lock) >> build-info.txt
+
+      - name: Upload release candidates
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: morphrpc-release-${{ github.sha }}
+          path: ${{ runner.temp }}/morphrpc-release
+          if-no-files-found: error
+          retention-days: 14

@@ -1,6 +1,6 @@
-requests = 120
-warmup_requests = 20
-repetitions = 2
+requests = 24
+warmup_requests = 8
+repetitions = 1
 concurrency = [1, 4]
 
 [[profiles]]
