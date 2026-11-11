@@ -30,7 +30,7 @@ def harness(sha):
 
 
 def run(command, cwd, env, log, timeout):
-    print(f"{log.parent.name}/{log.name}", flush=True)
+    print(log, flush=True)
     with log.open("w", encoding="utf-8") as stream:
         with subprocess.Popen(
             command, cwd=cwd, env=env, stdout=stream, stderr=subprocess.STDOUT,
@@ -123,7 +123,7 @@ def compare(args):
                 destination.mkdir(parents=True)
                 run(
                     [binary, "run", config, destination], worktree, env,
-                    destination / "run.log", timeout=600,
+                    destination / "run.log", timeout=args.run_timeout_seconds,
                 )
     generate(out)
 
@@ -138,6 +138,7 @@ def main():
     run_parser.add_argument("--output", type=Path, required=True)
     run_parser.add_argument("--pairs", type=int, default=8)
     run_parser.add_argument("--toolchain", help="Rustup toolchain, defaults to the current checkout's")
+    run_parser.add_argument("--run-timeout-seconds", type=int, default=1800, help="limit per benchmark invocation")
     run_parser.add_argument("--allow-unavailable-baseline", action="store_true")
     report_parser = commands.add_parser("report", help="regenerate reports from existing raw data")
     report_parser.add_argument("output", type=Path)
@@ -146,6 +147,8 @@ def main():
         if args.command == "compare":
             if args.pairs < 2 or args.pairs % 2:
                 parser.error("--pairs must be an even integer of at least 2")
+            if args.run_timeout_seconds < 1:
+                parser.error("--run-timeout-seconds must be positive")
             compare(args)
         else:
             generate(args.output)

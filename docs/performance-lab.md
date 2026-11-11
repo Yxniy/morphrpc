@@ -9,7 +9,7 @@ python3 benchmarks/lab/perf_lab.py compare BASELINE_SHA CANDIDATE_SHA \
 python3 benchmarks/lab/perf_lab.py report "$out"
 ```
 
-Use `smoke.toml` with `--pairs 2` for a quick run. Use `scheduled.toml` to measure latency from scheduled arrival at a fixed offered rate. For an estimate of host noise, run the same commit on both sides using the workload and pair count planned for the real comparison. Use a fresh output directory each time.
+Use `smoke.toml` with `--pairs 2` for a quick run. Use `scheduled.toml` to measure latency from scheduled arrival at a fixed offered rate. For an estimate of host noise, run the same commit on both sides using the workload and pair count planned for the real comparison. Use a fresh output directory each time. On hosts where delayed ACKs make the longer workloads slow, choose a shorter workload or increase `--run-timeout-seconds` (default 1,800 per invocation).
 
 Both release builds use the same Rustup compiler, locked dependencies, and separate temporary targets and detached worktrees. The lab copies one configuration file and checks that the benchmark source, build script, manifest, and service schema match between revisions. Keep timed harness changes separate from runtime changes so both revisions can run the updated harness. The lab checks the reported commit, clean worktree, build compiler, configuration, host metadata, and complete workload grid before computing deltas. Both runs in a pair finish before the next pair begins. The first pair runs baseline then candidate and the next runs candidate then baseline. Use an even number of pairs to balance the order. Each invocation creates fresh server processes and warms connections using the same configuration. Builds, warmup, and profiling run outside the timed measurements.
 
@@ -29,7 +29,7 @@ The lab preserves serialized body and known framing sizes. Server RSS is a post-
 
 ## GitHub Actions
 
-The separate Benchmarks workflow runs the smoke workload for PRs, comparing GitHub's merge revision with the exact PR base. Weekly and manual runs on `main` use the representative and fixed-rate workloads and compare against the first parent by default. A manual run can select a baseline commit reachable from `main`. When the base has no compatible harness, the workflow reports candidate measurements without deltas. Build or runtime errors leave logs in the artifact. Hosted timings are advisory and carry no pass/fail threshold. Download `benchmark-results` to regenerate the report locally.
+The separate Benchmarks workflow runs the smoke workload for PRs, comparing GitHub's merge revision with the exact PR base. Weekly and manual runs on `main` use the shorter `hosted-closed.toml` and `hosted-scheduled.toml` profiles and compare against the first parent by default. These profiles preserve payload sizes, connection counts, and socket settings while bounding the runtime on Linux. Their tail percentiles use few requests per block. Use longer workloads for a production decision. A manual run can select a baseline commit reachable from `main`. When the base has no compatible harness, the workflow reports candidate measurements without deltas. Build or runtime errors leave logs in the artifact. Hosted timings are advisory and carry no pass/fail threshold. Download `benchmark-results` to regenerate the report locally.
 
 ## Interface for an AI coding agent
 

@@ -50,7 +50,7 @@ The audit uses the current [RustSec advisory database](https://github.com/RustSe
 | CI / `Dependency audit` | PR, merge queue, push to `main`, weekly | Require. RustSec audit of workspace and fuzz lockfiles. |
 | CI / `Workflow lint` | PR, merge queue, push to `main` | Require. Validates workflow syntax, expressions, and shell scripts. |
 | Coverage / `Test coverage` | PR, push to `main` | Advisory. Workspace coverage totals and a `workspace-lcov` artifact. |
-| Benchmarks / `Benchmark reports` | PR, weekly, manual on `main` | Advisory. PR smoke run and same-run baseline comparison when available. Weekly and manual runs use paired closed-loop and fixed-rate profiles when the baseline harness matches. |
+| Benchmarks / `Benchmark reports` | PR, weekly, manual on `main` | Advisory. PR smoke run and same-run baseline comparison when available. Weekly and manual runs use shorter hosted closed-loop and fixed-rate profiles. |
 | CodeQL / `CodeQL PR report` | PR | Advisory. Rust findings in a `codeql-pr-sarif` artifact. |
 | CodeQL / `CodeQL Rust` | Push to `main`, weekly | Advisory. Rust findings in the repository Security tab. |
 | Fuzz / `Fuzz frame decoder` | Weekly, manual on `main` | Advisory. AddressSanitizer run with a five-minute fuzzing budget, a per-input timeout, and logs and reproducer artifacts. |
