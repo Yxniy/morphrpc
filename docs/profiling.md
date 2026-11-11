@@ -16,7 +16,7 @@ This closed-loop workload runs tiny responses over one and eight persistent conn
 
 ## macOS
 
-Install full Xcode and select its developer directory. Run `xcrun xctrace list templates` to check for Time Profiler, Allocations, and System Trace. Use local Xcode developer permissions for the target. A managed Mac may allow CPU sampling while denying allocation tracing.
+Install full Xcode and select its developer directory. Run `xcrun xctrace list templates` to check for Time Profiler, Allocations, and System Trace. Use local Xcode developer permissions for the target. Allocation tracing may require the target's debug entitlement even when CPU sampling works.
 
 ```sh
 xcrun xctrace record --template 'Time Profiler' --time-limit 90s \
@@ -28,7 +28,28 @@ xcrun xctrace record --template 'System Trace' --time-limit 90s \
 xcrun xctrace export --input "$out/cpu.trace" --toc > "$out/cpu-toc.xml"
 ```
 
-Open the trace in Instruments and select the launched PID. Use the Time Profiler call tree to inspect inclusive and self samples. Use Allocations to inspect allocation counts, bytes, and lifetimes grouped by stack. Use System Trace to inspect scheduler waits and system calls on the driver threads. For analysis in a script, use the exported table of contents to find the CPU sample table and pass its XPath to `xctrace export`. When you need actual loopback packet sizes or retransmissions, capture the relevant server port with `tcpdump -i lo0` on macOS or `tcpdump -i lo` on Linux, subject to local capture permissions. Capture traffic separately from timing runs. [Apple CPU profiles](https://developer.apple.com/documentation/xcode/analyzing-cpu-profiles-with-call-tree-views) · [Apple Allocations](https://developer.apple.com/documentation/xcode/gathering-information-about-memory-use)
+If Allocations cannot attach, sign a temporary copy of the local debug-symbol build and use that copy as the launch target:
+
+```sh
+cp "$binary" "$out/morphrpc-bench-debug"
+cat > "$out/entitlements.plist" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.get-task-allow</key>
+    <true/>
+</dict>
+</plist>
+PLIST
+codesign --force --sign - --entitlements "$out/entitlements.plist" "$out/morphrpc-bench-debug"
+xcrun xctrace record --template 'Allocations' --time-limit 90s \
+  --output "$out/heap-debug.trace" --launch -- "$out/morphrpc-bench-debug" \
+  run benchmarks/configs/client-encode.toml "$out/heap-debug-run"
+```
+
+Use the signed copy for local diagnostics only. [Apple debugging entitlement guidance](https://developer.apple.com/documentation/security/resolving-common-notarization-issues)
+
+Open the trace in Instruments and select the launched PID. Use the Time Profiler call tree to inspect inclusive and self samples. Use Allocations to inspect counts, bytes, and lifetimes grouped by stack. Include freed allocations when looking for temporary request buffers. Use System Trace to inspect scheduler waits and system calls on the driver threads. For analysis in a script, use the exported table of contents to find the CPU sample table and pass its XPath to `xctrace export`. When you need actual loopback packet sizes or retransmissions, capture the relevant server port with `tcpdump -i lo0` on macOS or `tcpdump -i lo` on Linux, subject to local capture permissions. Capture traffic separately from timing runs. [Apple CPU profiles](https://developer.apple.com/documentation/xcode/analyzing-cpu-profiles-with-call-tree-views) · [Apple Allocations](https://developer.apple.com/documentation/xcode/gathering-information-about-memory-use)
 
 ## Linux
 

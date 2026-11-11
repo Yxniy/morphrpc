@@ -2,7 +2,7 @@
   "schema_version": 1,
   "revisions": {
     "baseline": "bc858a212364ddec0a3a82f1fecbd92ddbc1f95e",
-    "candidate": "3e9aabf34878e8aca879ef4e4290ccf9823dbfa3"
+    "candidate": "fec60b35ec1aa85d9c33010b68947c410388de72"
   },
   "toolchain": "1.99.1-aarch64-apple-darwin",
   "compiler": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",

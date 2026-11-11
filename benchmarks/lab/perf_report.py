@@ -216,10 +216,10 @@ def markdown(manifest, metadata, rows):
     else:
         lines += [
             f"{len(manifest['orders'])} paired blocks, alternating baseline-first and candidate-first.",
-            "Each side shows the median ± sample standard deviation across blocks.",
+            "Timing and resource cells show median ± sample standard deviation across blocks.",
             "The change is the median paired percentage difference (candidate relative to baseline).",
             "Intervals have at least 95% nominal coverage under independent blocks and are per metric.",
-            "A dash marks an unavailable measurement or an interval with insufficient pairs (minimum six).",
+            "A dash marks an unavailable value. Intervals require at least six valid pairs.",
             "",
         ]
     lines += [
