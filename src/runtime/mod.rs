@@ -96,6 +96,7 @@ impl Client {
         self.next_id = self.next_id.wrapping_add(1);
         let result = timeout(self.deadline, async {
             stream.write_all(&encoded).await?;
+            drop(encoded);
             let response = read_frame(&mut stream).await?.ok_or(Error::Disconnected)?;
             if !matches!(response.kind, MessageKind::Response | MessageKind::Error)
                 || response.operation != request.operation
